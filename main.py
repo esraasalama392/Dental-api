@@ -11,14 +11,14 @@ app = FastAPI(title="Dental AI - DenseNet121 API")
 MODEL_PATH = "Dental_Final_Model.h5"
 
 CLASS_NAMES = [
-    "CANCER",
-    "Calculus",
-    "Caries",
-    "Gingivitis",
-    "Healthy",
-    "Hypodontia",
-    "Mouth Ulcer",
-    "Tooth Discoloration"
+    "CANCER | سرطان الفم",
+    "Calculus | جير الأسنان",
+    "Caries | تسوس",
+    "Gingivitis | التهاب اللثة",
+    "Healthy | أسنان سليمة",
+    "Hypodontia | نقص الأسنان",
+    "Mouth Ulcer | قرحة الفم",
+    "Tooth Discoloration | تغير لون الأسنان"
 ]
 
 # قاعدة بيانات العلاج
