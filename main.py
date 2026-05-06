@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import tensorflow as tf
 from PIL import Image
@@ -7,6 +8,14 @@ from io import BytesIO
 import cv2
 
 app = FastAPI(title="Dental AI - DenseNet121 API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 MODEL_PATH = "Dental_Final_Model.h5"
 
@@ -21,7 +30,6 @@ CLASS_NAMES = [
     "Tooth Discoloration | تغير لون الأسنان"
 ]
 
-# قاعدة بيانات العلاج
 treatment_database = {
     'CANCER': {
         'Treatment': 'يوصى بضرورة مراجعة طبيب الأسنان أو أخصائي أمراض الفم فوراً.',
@@ -54,6 +62,10 @@ treatment_database = {
     'Tooth Discoloration': {
         'Treatment': 'تبييض الأسنان أو استخدام القشور التجميلية.',
         'Tips': 'التقليل من القهوة والشاي والتدخين.'
+    },
+    'Unclear': {
+        'Treatment': 'الصورة مش واضحة كفاية، حاول تصور من قريب أكتر.',
+        'Tips': 'تأكد من الإضاءة وقرب الكاميرا من السن.'
     }
 }
 
@@ -62,14 +74,12 @@ model = tf.keras.models.load_model(MODEL_PATH)
 print("✅ تم تحميل DenseNet121 بنجاح!")
 
 def get_blur_value(image_bytes: bytes) -> float:
-    """حساب قيمة الـ Blur"""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
         return 0.0
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur_value = cv2.Laplacian(gray, cv2.CV_64F).var()
-    return float(blur_value)
+    return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 @app.post("/predict")
 async def predict_disease(file: UploadFile = File(...)):
@@ -79,10 +89,8 @@ async def predict_disease(file: UploadFile = File(...)):
     contents = await file.read()
 
     try:
-        # حساب الـ Blur
         blur_value = get_blur_value(contents)
 
-        # معالجة الصورة للموديل
         img = Image.open(BytesIO(contents)).convert('RGB')
         img = img.resize((224, 224))
         img_array = tf.keras.preprocessing.image.img_to_array(img)
@@ -91,15 +99,28 @@ async def predict_disease(file: UploadFile = File(...)):
 
         predictions = model.predict(img_array, verbose=0)[0]
 
-        print(f"\n--- صورة: {file.filename} ---")
-        for i, prob in enumerate(predictions):
-            print(f"{i:2d} | {CLASS_NAMES[i]:25} : {prob*100:6.2f}%")
-
         class_idx = int(np.argmax(predictions))
         confidence = float(predictions[class_idx] * 100)
-        disease = CLASS_NAMES[class_idx]
 
-        treatment_info = treatment_database.get(disease, {
+        # ✅ لو الـ confidence أقل من 60% مش متأكد
+        if confidence < 60:
+            return {
+                "status": "success",
+                "message": "تم التشخيص بنجاح",
+                "data": {
+                    "disease": "Unclear | صورة غير واضحة",
+                    "confidence": round(confidence, 2),
+                    "treatment": treatment_database['Unclear']['Treatment'],
+                    "tips": treatment_database['Unclear']['Tips'],
+                    "blur_value": round(blur_value, 2),
+                    "blur_warning": "يرجى التقاط صورة أوضح وأقرب للسن"
+                }
+            }
+
+        disease = CLASS_NAMES[class_idx]
+        disease_key = disease.split(' | ')[0]
+
+        treatment_info = treatment_database.get(disease_key, {
             'Treatment': 'يرجى استشارة طبيب الأسنان',
             'Tips': ''
         })
