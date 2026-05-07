@@ -102,21 +102,6 @@ async def predict_disease(file: UploadFile = File(...)):
         class_idx = int(np.argmax(predictions))
         confidence = float(predictions[class_idx] * 100)
 
-        # ✅ لو الـ confidence أقل من 60% مش متأكد
-        if confidence < 60:
-            return {
-                "status": "success",
-                "message": "تم التشخيص بنجاح",
-                "data": {
-                    "disease": "Unclear | صورة غير واضحة",
-                    "confidence": round(confidence, 2),
-                    "treatment": treatment_database['Unclear']['Treatment'],
-                    "tips": treatment_database['Unclear']['Tips'],
-                    "blur_value": round(blur_value, 2),
-                    "blur_warning": "يرجى التقاط صورة أوضح وأقرب للسن"
-                }
-            }
-
         disease = CLASS_NAMES[class_idx]
         disease_key = disease.split(' | ')[0]
 
