@@ -102,28 +102,63 @@ async def predict_disease(file: UploadFile = File(...)):
         class_idx = int(np.argmax(predictions))
         confidence = float(predictions[class_idx] * 100)
 
-        disease = CLASS_NAMES[class_idx]
-        disease_key = disease.split(' | ')[0]
-
-        treatment_info = treatment_database.get(disease_key, {
-            'Treatment': 'يرجى استشارة طبيب الأسنان',
-            'Tips': ''
-        })
-
         blur_warning = "تحذير: الصورة مهزوزة، يرجى التقاط صورة أوضح." if blur_value > 150 else ""
 
-        return {
-            "status": "success",
-            "message": "تم التشخيص بنجاح",
-            "data": {
-                "disease": disease,
-                "confidence": round(confidence, 2),
-                "treatment": treatment_info['Treatment'],
-                "tips": treatment_info['Tips'],
-                "blur_value": round(blur_value, 2),
-                "blur_warning": blur_warning
+        # ✅ لو confidence أكبر من 60% → نتيجة واحدة
+        if confidence >= 60:
+            disease = CLASS_NAMES[class_idx]
+            disease_key = disease.split(' | ')[0]
+            treatment_info = treatment_database.get(disease_key, {
+                'Treatment': 'يرجى استشارة طبيب الأسنان',
+                'Tips': ''
+            })
+            return {
+                "status": "success",
+                "message": "تم التشخيص بنجاح",
+                "data": {
+                    "disease": disease,
+                    "confidence": round(confidence, 2),
+                    "treatment": treatment_info['Treatment'],
+                    "tips": treatment_info['Tips'],
+                    "blur_value": round(blur_value, 2),
+                    "blur_warning": blur_warning,
+                    "second_disease": None
+                }
             }
-        }
+
+        # ✅ لو confidence أقل من 60% → أعلى 2 نتايج
+        else:
+            top2_indices = np.argsort(predictions)[::-1][:2]
+
+            disease1 = CLASS_NAMES[top2_indices[0]]
+            disease2 = CLASS_NAMES[top2_indices[1]]
+            conf1 = round(float(predictions[top2_indices[0]] * 100), 2)
+            conf2 = round(float(predictions[top2_indices[1]] * 100), 2)
+
+            key1 = disease1.split(' | ')[0]
+            key2 = disease2.split(' | ')[0]
+
+            treatment1 = treatment_database.get(key1, {'Treatment': 'يرجى استشارة طبيب الأسنان', 'Tips': ''})
+            treatment2 = treatment_database.get(key2, {'Treatment': 'يرجى استشارة طبيب الأسنان', 'Tips': ''})
+
+            return {
+                "status": "success",
+                "message": "تم التشخيص بنجاح",
+                "data": {
+                    "disease": disease1,
+                    "confidence": conf1,
+                    "treatment": treatment1['Treatment'],
+                    "tips": treatment1['Tips'],
+                    "blur_value": round(blur_value, 2),
+                    "blur_warning": blur_warning,
+                    "second_disease": {
+                        "disease": disease2,
+                        "confidence": conf2,
+                        "treatment": treatment2['Treatment'],
+                        "tips": treatment2['Tips']
+                    }
+                }
+            }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"حدث خطأ أثناء معالجة الصورة: {str(e)}")
