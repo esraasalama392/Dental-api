@@ -17,7 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MODEL_PATH = "Dental_Final_Model.h5"
+MODEL_PATH = "Dental_Final_Model_V2.h5"
 
 CLASS_NAMES = [
     "CANCER | سرطان الفم",
