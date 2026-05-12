@@ -20,58 +20,58 @@ app.add_middleware(
 MODEL_PATH = "Dental_Final_Model_V2.h5"
 
 CLASS_NAMES = [
-    "CANCER | سرطان الفم",
-    "Calculus | جير الأسنان",
-    "Caries | تسوس",
-    "Gingivitis | التهاب اللثة",
-    "Healthy | أسنان سليمة",
-    "Hypodontia | نقص الأسنان",
-    "Mouth Ulcer | قرحة الفم",
-    "Tooth Discoloration | تغير لون الأسنان"
+    "CANCER",
+    "Calculus",
+    "Caries",
+    "Gingivitis",
+    "Healthy",
+    "Hypodontia",
+    "Mouth Ulcer",
+    "Tooth Discoloration"
 ]
 
 treatment_database = {
     'CANCER': {
-        'Treatment': 'يوصى بضرورة مراجعة طبيب الأسنان أو أخصائي أمراض الفم فوراً.',
-        'Tips': 'التشخيص المبكر هو أفضل خطوة لضمان الخطة العلاجية المناسبة.'
+        'Treatment': 'Immediate consultation with a dentist or oral disease specialist is strongly recommended.',
+        'Tips': 'Early diagnosis is the best step to ensure the appropriate treatment plan.'
     },
     'Calculus': {
-        'Treatment': 'إجراء تنظيف عميق للأسنان وإزالة الجير.',
-        'Tips': 'يُنصح بتنظيف الأسنان مرتين يومياً واستخدام الخيط الطبي.'
+        'Treatment': 'Professional deep dental cleaning and tartar removal is required.',
+        'Tips': 'Brush your teeth twice daily and use dental floss regularly.'
     },
     'Caries': {
-        'Treatment': 'حشو السن المتضرر، أو علاج العصب إذا كان التسوس عميقاً.',
-        'Tips': 'التقليل من السكريات والمشروبات الغازية.'
+        'Treatment': 'Filling the affected tooth, or root canal treatment if the decay is deep.',
+        'Tips': 'Reduce sugar intake and carbonated drinks.'
     },
     'Gingivitis': {
-        'Treatment': 'تنظيف مهني للأسنان، مع استخدام غسول فم مضاد للبكتيريا.',
-        'Tips': 'الاهتمام بنظافة اللثة واستخدام فرشاة ناعمة.'
+        'Treatment': 'Professional dental cleaning with antibacterial mouthwash.',
+        'Tips': 'Pay attention to gum hygiene and use a soft-bristle toothbrush.'
     },
     'Healthy': {
-        'Treatment': 'لا يوجد علاج، حالة الفم سليمة.',
-        'Tips': 'استمر على روتين العناية بالأسنان المتميز.'
+        'Treatment': 'No treatment needed. Your mouth is in great condition!',
+        'Tips': 'Keep up your excellent dental care routine.'
     },
     'Hypodontia': {
-        'Treatment': 'استشارة أخصائي تقويم الأسنان.',
-        'Tips': 'المتابعة الدورية مع الطبيب.'
+        'Treatment': 'Consult an orthodontic specialist for evaluation.',
+        'Tips': 'Regular follow-up visits with your dentist are recommended.'
     },
     'Mouth Ulcer': {
-        'Treatment': 'استخدام جل مطهر أو مسكن موضعي للقرحة.',
-        'Tips': 'تجنب الأطعمة الحارة والحامضة.'
+        'Treatment': 'Apply antiseptic gel or topical pain relief to the ulcer.',
+        'Tips': 'Avoid spicy and acidic foods until healed.'
     },
     'Tooth Discoloration': {
-        'Treatment': 'تبييض الأسنان أو استخدام القشور التجميلية.',
-        'Tips': 'التقليل من القهوة والشاي والتدخين.'
+        'Treatment': 'Teeth whitening or cosmetic veneers are recommended.',
+        'Tips': 'Reduce coffee, tea, and smoking to prevent further discoloration.'
     },
     'Unclear': {
-        'Treatment': 'الصورة مش واضحة كفاية، حاول تصور من قريب أكتر.',
-        'Tips': 'تأكد من الإضاءة وقرب الكاميرا من السن.'
+        'Treatment': 'Image is not clear enough. Please retake a closer photo.',
+        'Tips': 'Make sure the lighting is good and the camera is close to the tooth.'
     }
 }
 
-print("جاري تحميل الموديل...")
+print("Loading model...")
 model = tf.keras.models.load_model(MODEL_PATH)
-print("✅ تم تحميل DenseNet121 بنجاح!")
+print("✅ DenseNet121 loaded successfully!")
 
 def get_blur_value(image_bytes: bytes) -> float:
     nparr = np.frombuffer(image_bytes, np.uint8)
@@ -102,19 +102,18 @@ async def predict_disease(file: UploadFile = File(...)):
         class_idx = int(np.argmax(predictions))
         confidence = float(predictions[class_idx] * 100)
 
-        blur_warning = "تحذير: الصورة مهزوزة، يرجى التقاط صورة أوضح." if blur_value > 150 else ""
+        blur_warning = "Warning: Image is blurry, please take a clearer photo." if blur_value > 150 else ""
 
-        # ✅ لو confidence أكبر من 60% → نتيجة واحدة
+        # ✅ confidence >= 60% → single result
         if confidence >= 60:
             disease = CLASS_NAMES[class_idx]
-            disease_key = disease.split(' | ')[0]
-            treatment_info = treatment_database.get(disease_key, {
-                'Treatment': 'يرجى استشارة طبيب الأسنان',
+            treatment_info = treatment_database.get(disease, {
+                'Treatment': 'Please consult a dentist.',
                 'Tips': ''
             })
             return {
                 "status": "success",
-                "message": "تم التشخيص بنجاح",
+                "message": "Diagnosis completed successfully",
                 "data": {
                     "disease": disease,
                     "confidence": round(confidence, 2),
@@ -126,7 +125,7 @@ async def predict_disease(file: UploadFile = File(...)):
                 }
             }
 
-        # ✅ لو confidence أقل من 60% → أعلى 2 نتايج
+        # ✅ confidence < 60% → top 2 results
         else:
             top2_indices = np.argsort(predictions)[::-1][:2]
 
@@ -135,15 +134,12 @@ async def predict_disease(file: UploadFile = File(...)):
             conf1 = round(float(predictions[top2_indices[0]] * 100), 2)
             conf2 = round(float(predictions[top2_indices[1]] * 100), 2)
 
-            key1 = disease1.split(' | ')[0]
-            key2 = disease2.split(' | ')[0]
-
-            treatment1 = treatment_database.get(key1, {'Treatment': 'يرجى استشارة طبيب الأسنان', 'Tips': ''})
-            treatment2 = treatment_database.get(key2, {'Treatment': 'يرجى استشارة طبيب الأسنان', 'Tips': ''})
+            treatment1 = treatment_database.get(disease1, {'Treatment': 'Please consult a dentist.', 'Tips': ''})
+            treatment2 = treatment_database.get(disease2, {'Treatment': 'Please consult a dentist.', 'Tips': ''})
 
             return {
                 "status": "success",
-                "message": "تم التشخيص بنجاح",
+                "message": "Diagnosis completed successfully",
                 "data": {
                     "disease": disease1,
                     "confidence": conf1,
@@ -161,7 +157,7 @@ async def predict_disease(file: UploadFile = File(...)):
             }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"حدث خطأ أثناء معالجة الصورة: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
 
 if __name__ == "__main__":
